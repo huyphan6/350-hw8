@@ -144,11 +144,6 @@ public class Pirate {
 	/* Sort list L of integers */
 	Collections.sort(L);
 
-	/* Possibly the worst way of doing this. Generate all the
-	 * possible tuples of the form <a, b, hash> to be cracked. The
-	 * work queue might explode after this. A work-queue pruning
-	 * strategy is required to meet some reasonable timing
-	 * constraints. */
 	int len = L.size();
 	for (int i = 0; i < len-1; ++i) {
 	    for (int j = i + 1; j < len; ++j) {
@@ -158,16 +153,11 @@ public class Pirate {
 			}
 	    }
 	}
-
-//	System.out.println("Uncracked: " + uncrackedCounter);
-//	System.out.println("Cracked: " + crackedCounter);
-//	System.out.println("Size of work queue: " + workQueue.size());
-//	System.out.println("Size of result queue: " + resQueue.size());
     }
 
 	private void __extraComplexWork() throws InterruptedException {
 		ArrayList<Integer> L = new ArrayList<Integer>();
-		ArrayList<String> uncracked = new ArrayList<String>();
+		HashSet<String> uncracked = new HashSet<String>();
 
 		uncrackedCounter = 0;
 		crackedCounter = 0;
@@ -189,17 +179,11 @@ public class Pirate {
 		if (uncracked.size() == 0) {
 			isDone = true;
 		}
-		/* Done splitting result -- we can clean up the result queue */
+
 		resQueue.clear();
 
-		/* Sort list L of integers */
 		Collections.sort(L);
 
-		/* Possibly the worst way of doing this. Generate all the
-		 * possible tuples of the form <a, b, hash> to be cracked. The
-		 * work queue might explode after this. A work-queue pruning
-		 * strategy is required to meet some reasonable timing
-		 * constraints. */
 		int len = L.size();
 		for (int i = 0; i < len-1; ++i) {
 			for (int j = i + 1; j < len; ++j) {
@@ -245,8 +229,7 @@ public class Pirate {
 	// treasure map
     }
     
-    public void findTreasure (byte[] mapFile) throws InterruptedException, IOException ///// change
-	{
+    public void findTreasure (byte[] mapFile) throws InterruptedException, IOException  {
 //		boolean firstCall = true;
 		String mapString = new String(mapFile, StandardCharsets.UTF_8);
 		StringBuilder output = new StringBuilder();
@@ -292,7 +275,8 @@ public class Pirate {
 
     /* Entry point of the code */
     public static void main(String[] args) throws InterruptedException, IOException {
-	/* Read path of input file */       
+	/* Read path of input file */
+
   	String inputFile = args[0];
 //		File map = new File("HW8_island.txt");
 //		File map = new File("HW8_public_test_hard_island.txt");
@@ -307,7 +291,7 @@ public class Pirate {
 //	int N = 4;
 
 	/* If it exists, read in timeout, default to 10 seconds otherwise */
-	int timeoutMillis = 2000;
+	int timeoutMillis = 10000;
 	if (args.length > 2) {
 	    timeoutMillis = Integer.parseInt(args[2]);
 	}
