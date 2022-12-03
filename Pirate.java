@@ -20,7 +20,6 @@ import java.nio.file.*;
 /***************************************************/
 
 public class Pirate {
-
     String fileName;
     int numCPUs;
     int timeoutMillis;
@@ -34,16 +33,11 @@ public class Pirate {
 
     /* Mutex to protect input queue */   
     Semaphore wqMutex;
-    
     /* Mutex to protect output queue */
     Semaphore rsMutex;
-
 	Boolean isDone = false;
-
 	Integer uncrackedCounter = 1;
-
 	Integer crackedCounter = 1;
-
 	HashSet<Integer> kVals = new HashSet<Integer>();
     
     public Pirate (String fileName, int N, int timeout) {
@@ -138,11 +132,6 @@ public class Pirate {
 		
 		/* We might as well print this first round of results already */
 
-		else if (res != null && !w.isSimple()) {
-			L.add(Integer.parseInt(res.split(";")[1]));
-			kVals.add(Integer.parseInt(res.split(";")[1]));
-		}
-
 	    else {
 			uncracked.add(w.getHash());
 			uncrackedCounter++;
@@ -176,6 +165,52 @@ public class Pirate {
 //	System.out.println("Size of result queue: " + resQueue.size());
     }
 
+	private void __extraComplexWork() throws InterruptedException {
+		ArrayList<Integer> L = new ArrayList<Integer>();
+		ArrayList<String> uncracked = new ArrayList<String>();
+
+		uncrackedCounter = 0;
+		crackedCounter = 0;
+
+		for (WorkUnit w : resQueue) {
+			String res = w.getResult();
+
+			if (res != null) {
+				L.add(Integer.parseInt(res.split(";")[1]));
+				kVals.add(Integer.parseInt(res.split(";")[1]));
+			}
+
+			else {
+				uncracked.add(w.getHash());
+				uncrackedCounter++;
+			}
+		}
+
+		if (uncracked.size() == 0) {
+			isDone = true;
+		}
+		/* Done splitting result -- we can clean up the result queue */
+		resQueue.clear();
+
+		/* Sort list L of integers */
+		Collections.sort(L);
+
+		/* Possibly the worst way of doing this. Generate all the
+		 * possible tuples of the form <a, b, hash> to be cracked. The
+		 * work queue might explode after this. A work-queue pruning
+		 * strategy is required to meet some reasonable timing
+		 * constraints. */
+		int len = L.size();
+		for (int i = 0; i < len-1; ++i) {
+			for (int j = i + 1; j < len; ++j) {
+				for (String h : uncracked) {
+					WorkUnit work = new WorkUnit(h, L.get(i), L.get(j));
+					dispatcher.addWork(work);
+				}
+			}
+		}
+	}
+
     private void __postProcessResult() throws InterruptedException, IOException { //// change
 	HashMap<String, Boolean> uncrackable = new HashMap<String, Boolean>();
 
@@ -202,13 +237,9 @@ public class Pirate {
 	}
 
 	/* Print the uncrackable hashes */
-	for (String h : uncrackable.keySet()) {
+//	for (String h : uncrackable.keySet()) {
 //	    System.out.println(h);
-	}
-
-	if (uncrackable.size() == 0) {
-		isDone = true;
-	}
+//	}
 //	System.out.println(kVals + " " + kVals.size());
 
 	// treasure map
@@ -216,65 +247,46 @@ public class Pirate {
     
     public void findTreasure (byte[] mapFile) throws InterruptedException, IOException ///// change
 	{
-		boolean firstCall = true;
-
-//		File map = new File("HW8_island.txt");
-//		File map = new File("HW8_public_test_hard_island.txt");
-//		File map = new File(mapFile);
-//		byte[] mapBytes = Files.readAllBytes(map.toPath());
+//		boolean firstCall = true;
 		String mapString = new String(mapFile, StandardCharsets.UTF_8);
-		String output = "";
-		int arrIndex = 0;
-		int mapIndex = 0;
-
-//		System.out.println(mapString);
-
-		/* Read the input file and initialize the input queue */
+		StringBuilder output = new StringBuilder();
 
 		__initWorkQueue();
 
-		/* Dispatch work and wait for completion of current stage */
 		dispatcher.dispatch();
 
-//		while (__getUncrackedCount() != 0 || firstCall) {
-		while(!isDone || firstCall) {
+		rsMutex.acquire();
+		__prepareCompoundWork();
+		rsMutex.release();
+
+		dispatcher.dispatch();
+
+		while(!isDone) {
 //			System.out.println("CRACKKING");
-			firstCall = false;
+//			firstCall = false;
 
 			rsMutex.acquire();
-			/* We have the result. Generate the new work queue to crack compound hashes */
-			__prepareCompoundWork();
-//			uncrackedCounter = __getUncrackedCount();
-//			crackedCounter = __getCrackedCount();
+			__extraComplexWork();
 			rsMutex.release();
 
-			/* Dispatch work and wait for completion of current stage */
-			dispatcher.dispatch();
-
-			/* Use a hash map to prune the output result */
-			rsMutex.acquire();
-			__postProcessResult();
-			rsMutex.release();
-
+			if (isDone) {
+				break;
 			}
-		/* Done! Terminate the dispatcher (and any worker thread with that) */
+			dispatcher.dispatch();
+		}
+
+//		rsMutex.acquire();
+//		__postProcessResult();
+//		rsMutex.release();
+
 		dispatcher.terminate();
 
 		ArrayList<Integer> kArr = new ArrayList<Integer>(kVals);
 		Collections.sort(kArr);
 
-//		System.out.println(kArr);
-//		System.out.println(kArr.size());
-
-		while (arrIndex < kArr.size()) {
-			if (mapIndex == kArr.get(arrIndex)) {
-				output += (mapString.charAt(mapIndex));
-				arrIndex++;
-			}
-			mapIndex++;
-
-			}
-
+		for (int i : kArr) {
+			output.append(mapString.charAt(i));
+		}
 		System.out.println(output);
 		}
 
@@ -282,16 +294,20 @@ public class Pirate {
     public static void main(String[] args) throws InterruptedException, IOException {
 	/* Read path of input file */       
   	String inputFile = args[0];
+//		File map = new File("HW8_island.txt");
+//		File map = new File("HW8_public_test_hard_island.txt");
+//		byte[] mapBytes = Files.readAllBytes(map.toPath());
+
 	  byte[] map = Files.readAllBytes(Paths.get(args[3]));
 //		String inputFile = "HW8_public_test_easy.txt";
 //		String inputFile = "HW8_public_test_hard.txt";
 
 	/* Read number of available CPUs */
 	int N = Integer.parseInt(args[1]);
-//	int N = 5;
+//	int N = 4;
 
 	/* If it exists, read in timeout, default to 10 seconds otherwise */
-	int timeoutMillis = 1000;
+	int timeoutMillis = 2000;
 	if (args.length > 2) {
 	    timeoutMillis = Integer.parseInt(args[2]);
 	}
@@ -302,7 +318,6 @@ public class Pirate {
 	/* Start the work */
         thePirate.findTreasure(map);
 	}
-
 }
 
 /* END -- Q1BSR1QgUmVuYXRvIE1hbmN1c28= */
