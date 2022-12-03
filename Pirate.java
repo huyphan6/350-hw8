@@ -2,7 +2,6 @@ package hw7;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.security.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.nio.file.*;
@@ -46,7 +45,6 @@ public class Pirate {
 	Integer crackedCounter = 1;
 
 	HashSet<Integer> kVals = new HashSet<Integer>();
-
     
     public Pirate (String fileName, int N, int timeout) {
 	this.fileName = fileName;
@@ -135,7 +133,7 @@ public class Pirate {
 			L.add(Integer.parseInt(res));
 			kVals.add(Integer.parseInt(res));
 			crackedCounter++;
-			System.out.println(res);
+//			System.out.println(res);
 		}
 		
 		/* We might as well print this first round of results already */
@@ -172,21 +170,14 @@ public class Pirate {
 	    }
 	}
 
-	System.out.println("Uncracked: " + uncrackedCounter);
-	System.out.println("Cracked: " + crackedCounter);
-	System.out.println("Size of work queue: " + workQueue.size());
-	System.out.println("Size of result queue: " + resQueue.size());
+//	System.out.println("Uncracked: " + uncrackedCounter);
+//	System.out.println("Cracked: " + crackedCounter);
+//	System.out.println("Size of work queue: " + workQueue.size());
+//	System.out.println("Size of result queue: " + resQueue.size());
     }
 
     private void __postProcessResult() throws InterruptedException, IOException { //// change
 	HashMap<String, Boolean> uncrackable = new HashMap<String, Boolean>();
-
-	File map = new File("HW8_island.txt");
-	byte[] mapBytes = Files.readAllBytes(map.toPath());
-	String mapString = new String(mapBytes, StandardCharsets.UTF_8);
-	String output = "";
-
-//	System.out.println(mapString);
 
 	for (WorkUnit w : resQueue) {
 	    String res = w.getResult();
@@ -203,7 +194,7 @@ public class Pirate {
 	    
 	    if (res != null) {
 			kVals.add(Integer.parseInt((res.split(";")[1])));
-			System.out.println(res);
+//			System.out.println(res);
 
 			/* Remove what we know has been cracked*/
 			uncrackable.remove(h);
@@ -212,30 +203,31 @@ public class Pirate {
 
 	/* Print the uncrackable hashes */
 	for (String h : uncrackable.keySet()) {
-	    System.out.println(h);
+//	    System.out.println(h);
 	}
 
-//	if (uncrackable.size() == 0) {
-//		isDone = true;
-//	}
-	System.out.println(kVals + " " + kVals.size());
+	if (uncrackable.size() == 0) {
+		isDone = true;
+	}
+//	System.out.println(kVals + " " + kVals.size());
 
 	// treasure map
-
-//	ArrayList<Integer> kArr = new ArrayList<Integer>(kVals);
-//	Collections.sort(kArr);
-//
-//	for (int i = 0; i < mapString.length() + 1; i++) {
-//		if (i == kArr.get(i)) {
-//			output += mapString.charAt(i);
-//		}
-//	}
-//	System.out.println(output);
     }
     
-    public void findTreasure () throws InterruptedException, IOException ///// change
+    public void findTreasure (byte[] mapFile) throws InterruptedException, IOException ///// change
 	{
 		boolean firstCall = true;
+
+//		File map = new File("HW8_island.txt");
+//		File map = new File("HW8_public_test_hard_island.txt");
+//		File map = new File(mapFile);
+//		byte[] mapBytes = Files.readAllBytes(map.toPath());
+		String mapString = new String(mapFile, StandardCharsets.UTF_8);
+		String output = "";
+		int arrIndex = 0;
+		int mapIndex = 0;
+
+//		System.out.println(mapString);
 
 		/* Read the input file and initialize the input queue */
 
@@ -244,8 +236,9 @@ public class Pirate {
 		/* Dispatch work and wait for completion of current stage */
 		dispatcher.dispatch();
 
-		while (__getUncrackedCount() != 0 || firstCall) {
-			System.out.println("CRACKKING");
+//		while (__getUncrackedCount() != 0 || firstCall) {
+		while(!isDone || firstCall) {
+//			System.out.println("CRACKKING");
 			firstCall = false;
 
 			rsMutex.acquire();
@@ -270,20 +263,32 @@ public class Pirate {
 		ArrayList<Integer> kArr = new ArrayList<Integer>(kVals);
 		Collections.sort(kArr);
 
-		System.out.println(kArr);
-		System.out.println(kArr.size());
+//		System.out.println(kArr);
+//		System.out.println(kArr.size());
 
-	}
+		while (arrIndex < kArr.size()) {
+			if (mapIndex == kArr.get(arrIndex)) {
+				output += (mapString.charAt(mapIndex));
+				arrIndex++;
+			}
+			mapIndex++;
+
+			}
+
+		System.out.println(output);
+		}
 
     /* Entry point of the code */
     public static void main(String[] args) throws InterruptedException, IOException {
 	/* Read path of input file */       
-//  	String inputFile = args[0];
-	String inputFile = "HW8_public_test_easy.txt";
+  	String inputFile = args[0];
+	  byte[] map = Files.readAllBytes(Paths.get(args[3]));
+//		String inputFile = "HW8_public_test_easy.txt";
+//		String inputFile = "HW8_public_test_hard.txt";
 
 	/* Read number of available CPUs */
-//	int N = Integer.parseInt(args[1]);
-	int N = 4;
+	int N = Integer.parseInt(args[1]);
+//	int N = 5;
 
 	/* If it exists, read in timeout, default to 10 seconds otherwise */
 	int timeoutMillis = 1000;
@@ -295,7 +300,7 @@ public class Pirate {
         Pirate thePirate = new Pirate(inputFile, N, timeoutMillis);
 
 	/* Start the work */
-        thePirate.findTreasure();
+        thePirate.findTreasure(map);
 	}
 
 }
